@@ -1,94 +1,81 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+import plotly.graph_objs as go
+import scipy.cluster.hierarchy as sch
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-from sklearn.decomposition import PCA
-from scipy.cluster.hierarchy import dendrogram, linkage
-import plotly.graph_objects as go  
 
-# load dataset
-df = pd.read_csv('pesbuk_live.csv')
+# Load data
+df = pd.read_csv('./pesbuk_live.csv')
 
-# drop every line that includes Not a Number (NaN) values
-df = df.dropna()
-# pick numeric features
-num_features = ['num_comments', 'num_shares', 'num_likes']
-df_train = df[num_features]
+# Selecting relevant columns for clustering
+kolom_2 = ['num_reactions', 'num_comments', 'num_shares']
+df_train = df[kolom_2]
 
-# if there are still NaN values after feature selection, fill with mean
-df_train = df_train.fillna(df_train.mean())
-
-# store wcss and silhouette score
+# Finding the optimal number of clusters using Elbow Method and Silhouette Score
 wcss = []
 scores = []
-
 for i in range(2, 10):
     km = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=42)
     km.fit(df_train)
     wcss.append(km.inertia_)
-
     labels = km.labels_
     silhouette_avg = silhouette_score(df_train, labels)
     scores.append(silhouette_avg)
-    
-    print(f'WCSS score for n_clusters = {i} is {wcss[-1]}')
+    print(f'WCSS score for n_cluster = {i} is {wcss[-1]}')
     print(f'Silhouette score for n_clusters = {i} is {silhouette_avg}')
 
-# combine elbow method & silhouette for better comparison
-fig, ax1 = plt.subplots()
-
-ax1.set_xlabel('No. of Clusters')
-ax1.set_ylabel('WCSS', color='blue')
-ax1.plot(range(2, 10), wcss, marker='o', linestyle='-', color='blue', label='WCSS (Elbow Method)')
-ax1.tick_params(axis='y', labelcolor='blue')
-
-# add 2nd Y axis for silhouette score
-ax2 = ax1.twinx()
-ax2.set_ylabel('Silhouette Score', color='red')
-ax2.plot(range(2, 10), scores, marker='s', linestyle='--', color='red', label='Silhouette Score')
-ax2.tick_params(axis='y', labelcolor='red')
-
-fig.suptitle('Elbow Method & Silhouette Score', fontsize=16)
-fig.tight_layout()
+# Elbow Method Plot
+plt.figure(figsize=(8, 5))
+plt.plot(range(2, 10), wcss, marker='o', linestyle='-', color='b')
+plt.title('The Elbow Method')
+plt.xlabel('Number of Clusters')
+plt.ylabel('WCSS')
 plt.show()
 
+# Silhouette Score Plot
+plt.figure(figsize=(8, 5))
+plt.plot(range(2, 10), scores, marker='o', linestyle='-', color='g')
+plt.title('Silhouette Score')
+plt.xlabel('Number of Clusters')
+plt.ylabel('Score')
+plt.show()
 
-# based on elbow method and silhouette, pick K = 3
+# Applying KMeans Clustering with K=3
 kmeansmodel = KMeans(n_clusters=3, init='k-means++', max_iter=300, n_init=10, random_state=42)
 y_kmeans = kmeansmodel.fit_predict(df_train)
 
-# visualize clustering in 3D with plotly
+# Creating 3D scatter plot with plotly
 trace1 = go.Scatter3d(
-    x=df_train.iloc[y_kmeans == 0, 0],
-    y=df_train.iloc[y_kmeans == 0, 1],
-    z=df_train.iloc[y_kmeans == 0, 2],
+    x=df_train[y_kmeans == 0].iloc[:, 0],
+    y=df_train[y_kmeans == 0].iloc[:, 1],       
+    z=df_train[y_kmeans == 0].iloc[:, 2],
     mode='markers',
     marker=dict(size=8, color='red', opacity=0.8),
     name='Cluster 1'
 )
 
 trace2 = go.Scatter3d(
-    x=df_train.iloc[y_kmeans == 1, 0],
-    y=df_train.iloc[y_kmeans == 1, 1],
-    z=df_train.iloc[y_kmeans == 1, 2],
+    x=df_train[y_kmeans == 1].iloc[:, 0],
+    y=df_train[y_kmeans == 1].iloc[:, 1],
+    z=df_train[y_kmeans == 1].iloc[:, 2],
     mode='markers',
     marker=dict(size=8, color='blue', opacity=0.8),
     name='Cluster 2'
 )
 
 trace3 = go.Scatter3d(
-    x=df_train.iloc[y_kmeans == 2, 0],
-    y=df_train.iloc[y_kmeans == 2, 1],
-    z=df_train.iloc[y_kmeans == 2, 2],
+    x=df_train[y_kmeans == 2].iloc[:, 0],
+    y=df_train[y_kmeans == 2].iloc[:, 1],
+    z=df_train[y_kmeans == 2].iloc[:, 2],
     mode='markers',
     marker=dict(size=8, color='green', opacity=0.8),
     name='Cluster 3'
 )
 
-# scatter plot for visualizing centroids
+# Scatter plot for centroids
 centroids = go.Scatter3d(
     x=kmeansmodel.cluster_centers_[:, 0],
     y=kmeansmodel.cluster_centers_[:, 1],
@@ -98,38 +85,35 @@ centroids = go.Scatter3d(
     name='Centroids'
 )
 
-# Layout plot
+# Layout setup
 layout = go.Layout(
-    title='KMeans Clustering Results',
+    title='Hasil KMeans Clustering',
     scene=dict(
-        xaxis_title='num_comments',
-        yaxis_title='num_shares',
-        zaxis_title='num_likes'
+        xaxis_title='HP',
+        yaxis_title='ATK',
+        zaxis_title='DEF'
     ),
     showlegend=True
 )
 
-# combine plots
+# Combine traces into figure
 fig = go.Figure(data=[trace1, trace2, trace3, centroids], layout=layout)
-
-# show the plot
 fig.show()
 
 from sklearn.cluster import AgglomerativeClustering
 
 linkage_col = ['ward', 'complete', 'average', 'single']
 scores_all = [[] for _ in range(len(linkage_col))]
-for j in range (len(linkage_col)):
+for j in range(len(linkage_col)):
     print('Linkage: ', linkage_col[j])
     scores = []
     for i in range(2, 10):
-        AC = AgglomerativeClustering(n_clusters=i, linkage = linkage_col[j]) # --> word method
+        AC = AgglomerativeClustering(n_clusters=i, linkage=linkage_col[j])
         AC.fit(df_train)
-
         labels = AC.labels_
         silhouette_avg = silhouette_score(df_train, labels)
         scores.append(silhouette_avg)
-        print('silhoutte score for n_clusters = ' + str(i) + ' is ' + str(silhouette_avg))
+        print('Silhouette score for n_clusters = ' + str(i) + ' is ' + str(silhouette_avg))
     print("\n##########################\n")
     scores_all[j] = scores
 
@@ -144,8 +128,6 @@ plt.title('Silhouette Score vs. Number of Clusters for Different Linkage Methods
 plt.legend()
 plt.grid(True)
 plt.show()
-
-# perform agglomerative clustering (3 clusters)
 
 number_of_cluster = 3
 AC = AgglomerativeClustering(n_clusters=number_of_cluster, linkage='average')
@@ -187,30 +169,14 @@ centroid_trace = go.Scatter3d(
 traces.append(centroid_trace)
 
 layout = go.Layout(
-    title='Agglomerative Clustering 3D',
+    title='Hasil Agglomerative Clustering 3D',
     scene=dict(
-        xaxis_title='num_comments',
-        yaxis_title='num_shares',
-        zaxis_title='num_likes'
+        xaxis_title='HP',
+        yaxis_title='ATK',
+        zaxis_title='DEF'
     ),
     showlegend=True
 )
 
 fig = go.Figure(data=traces, layout=layout)
 fig.show()
-
-import scipy.cluster.hierarchy as sch
-
-linked = sch.linkage(df_train, 'average')
-
-
-plt.figure(figsize=(15, 10))
-dendrogram = sch.dendrogram(linked, orientation='top',distance_sort='descending', show_leaf_counts=True)
-plt.title('Dendrogram')
-plt.xlabel('Data Point')
-plt.ylabel('Distance')
-plt.axhline(y=1500, color='black', linestyle='--') 
-# --> data will be dividedinto 3 clusters
-plt.show()
-
-
