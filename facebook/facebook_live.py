@@ -180,3 +180,71 @@ layout = go.Layout(
 
 fig = go.Figure(data=traces, layout=layout)
 fig.show()
+
+# ... [your imports and loading code remains unchanged above]
+
+# KMEANS CLUSTERING METRICS
+best_kmeans_silhouette = -1
+best_kmeans_k = 0
+best_kmeans_sse = 0
+
+for i in range(2, 10):
+    km = KMeans(n_clusters=i, init='k-means++', max_iter=300, n_init=10, random_state=42)
+    km.fit(df_train)
+    wcss.append(km.inertia_)
+    labels = km.labels_
+    silhouette_avg = silhouette_score(df_train, labels)
+    scores.append(silhouette_avg)
+    
+    # Update best score
+    if silhouette_avg > best_kmeans_silhouette:
+        best_kmeans_silhouette = silhouette_avg
+        best_kmeans_k = i
+        best_kmeans_sse = km.inertia_
+    
+    print(f'WCSS score for n_cluster = {i} is {wcss[-1]}')
+    print(f'Silhouette score for n_clusters = {i} is {silhouette_avg}')
+
+linked = sch.linkage(df_train, 'average')
+
+
+plt.figure(figsize=(15, 10))
+dendrogram = sch.dendrogram(linked, orientation='top',distance_sort='descending', show_leaf_counts=True)
+plt.title('Dendrogram')
+plt.xlabel('Data Point')
+plt.ylabel('Distance')
+plt.axhline(y=1500, color='black', linestyle='--') # at this point, will divide the data into 3 clusters
+plt.show()
+
+# AGGLOMERATIVE CLUSTERING METRICS
+best_agglomerative_score = -1
+best_agglomerative_k = 0
+best_agglomerative_linkage = ""
+
+for j, linkage in enumerate(linkage_col):
+    print('Linkage: ', linkage)
+    scores = []
+    for i in range(2, 10):
+        AC = AgglomerativeClustering(n_clusters=i, linkage=linkage)
+        AC.fit(df_train)
+        labels = AC.labels_
+        silhouette_avg = silhouette_score(df_train, labels)
+        scores.append(silhouette_avg)
+        
+        # Update best score
+        if silhouette_avg > best_agglomerative_score:
+            best_agglomerative_score = silhouette_avg
+            best_agglomerative_k = i
+            best_agglomerative_linkage = linkage
+        
+        print(f'Silhouette score for n_clusters = {i} is {silhouette_avg}')
+    print("\n##########################\n")
+    scores_all[j] = scores
+
+
+# ... [Silhouette score plot for agglomerative remains unchanged]
+
+# COMPARISON OUTPUT
+print("==== Best Clustering Results Comparison ====")
+print(f"[KMeans] Silhouette Score: {best_kmeans_silhouette:.4f}, SSE: {best_kmeans_sse:.2f}")
+print(f"[Agglomerative] Linkage: {best_agglomerative_linkage}, Silhouette Score: {best_agglomerative_score:.4f}")
